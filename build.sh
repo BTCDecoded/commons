@@ -41,7 +41,7 @@ declare -A BINARIES
 BINARIES[consensus-proof]=""
 BINARIES[protocol-engine]=""
 BINARIES[reference-node]="reference-node"
-BINARIES[developer-sdk]="btcdecoded-keygen btcdecoded-sign btcdecoded-verify"
+BINARIES[developer-sdk]="bllvm-keygen bllvm-sign bllvm-verify"
 BINARIES[governance-app]="governance-app key-manager test-content-hash test-content-hash-standalone"
 
 # Functions
@@ -199,7 +199,7 @@ topological_sort() {
 }
 
 main() {
-    log_info "BTCDecoded Unified Build System"
+    log_info "Bitcoin Commons BLLVM Unified Build System"
     log_info "Mode: ${MODE}"
     echo ""
     

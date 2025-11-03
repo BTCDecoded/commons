@@ -1,0 +1,96 @@
+name: Release Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      set_ref:
+        description: 'Ref/tag to use for all repos (optional, falls back to versions.toml)'
+        required: false
+        default: ''
+
+jobs:
+  read-versions:
+    runs-on: [self-hosted, linux, x64]
+    outputs:
+      cp: ${{ steps.parse.outputs.cp }}
+      pe: ${{ steps.parse.outputs.pe }}
+      rn: ${{ steps.parse.outputs.rn }}
+      ds: ${{ steps.parse.outputs.ds }}
+      ga: ${{ steps.parse.outputs.ga }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse versions.toml
+        id: parse
+        run: |
+          CP=$(grep -E '^consensus-proof' versions.toml | awk -F '="' '{print $2}' | tr -d '"')
+          PE=$(grep -E '^protocol-engine' versions.toml | awk -F '="' '{print $2}' | tr -d '"')
+          RN=$(grep -E '^reference-node' versions.toml | awk -F '="' '{print $2}' | tr -d '"')
+          DS=$(grep -E '^developer-sdk' versions.toml | awk -F '="' '{print $2}' | tr -d '"')
+          GA=$(grep -E '^governance-app' versions.toml | awk -F '="' '{print $2}' | tr -d '"')
+          echo "cp=$CP" >> $GITHUB_OUTPUT
+          echo "pe=$PE" >> $GITHUB_OUTPUT
+          echo "rn=$RN" >> $GITHUB_OUTPUT
+          echo "ds=$DS" >> $GITHUB_OUTPUT
+          echo "ga=$GA" >> $GITHUB_OUTPUT
+
+  verify-consensus:
+    needs: read-versions
+    uses: ./.github/workflows/verify_consensus.yml
+    with:
+      repo: consensus-proof
+      kani: true
+      ref: ${{ needs.read-versions.outputs.cp }}
+
+  build-protocol-engine:
+    needs: verify-consensus
+    uses: ./.github/workflows/build_lib.yml
+    with:
+      repo: protocol-engine
+      package: protocol-engine
+      ref: ${{ needs.read-versions.outputs.pe }}
+
+  build-reference-node:
+    needs: build-protocol-engine
+    uses: ./.github/workflows/build_lib.yml
+    with:
+      repo: reference-node
+      package: reference-node
+      ref: ${{ needs.read-versions.outputs.rn }}
+
+  build-developer-sdk:
+    needs: build-reference-node
+    uses: ./.github/workflows/build_lib.yml
+    with:
+      repo: developer-sdk
+      package: developer-sdk
+      ref: ${{ needs.read-versions.outputs.ds }}
+
+  build-governance-app-image:
+    needs: build-developer-sdk
+    uses: ./.github/workflows/build_docker.yml
+    with:
+      repo: governance-app
+      context: .
+      image_name: governance-app
+      push: false
+      ref: ${{ needs.read-versions.outputs.ga }}
+      tag: ${{ needs.read-versions.outputs.ga }}
+
+  deploy-signal:
+    needs: build-governance-app-image
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Send deployment signal to governance-app self-hosted runner
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: 'governance-app',
+              event_type: 'deploy',
+              client_payload: { 
+                tag: '${{ needs.read-versions.outputs.ga }}',
+                image: '${{ secrets.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository_owner }}/governance-app:${{ needs.read-versions.outputs.ga }}'
+              }
+            })

@@ -1,0 +1,13 @@
+{
+  "name": "governance-app-dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml", "serayuzgur.crates"]
+    }
+  },
+  "postCreateCommand": "curl https://sh.rustup.rs -sSf | sh -s -- -y"
+}

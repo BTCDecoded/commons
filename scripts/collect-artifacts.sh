@@ -15,7 +15,7 @@ TARGET_DIR="target/release"
 # Binary mapping
 declare -A REPO_BINARIES
 REPO_BINARIES[reference-node]="reference-node"
-REPO_BINARIES[developer-sdk]="btcdecoded-keygen btcdecoded-sign btcdecoded-verify"
+REPO_BINARIES[developer-sdk]="bllvm-keygen bllvm-sign bllvm-verify"
 REPO_BINARIES[governance-app]="governance-app key-manager test-content-hash test-content-hash-standalone"
 
 log_info() {
@@ -73,7 +73,7 @@ create_archives() {
     log_info "Creating release archives..."
     
     local platform="${1:-linux-x86_64}"
-    local archive_name="btcdecoded-${platform}"
+    local archive_name="bitcoin-commons-bllvm-${platform}"
     
     pushd "$ARTIFACTS_DIR" > /dev/null
     

@@ -1,0 +1,39 @@
+name: Governance App Deploy
+
+on:
+  repository_dispatch:
+    types: [deploy]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Show payload
+        run: |
+          echo "Tag: ${{ github.event.client_payload.tag }}"
+          echo "Image: ${{ github.event.client_payload.image }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull tag (if building from source)
+        run: |
+          if [ -n "${{ github.event.client_payload.tag }}" ]; then
+            git fetch --tags
+            git checkout "${{ github.event.client_payload.tag }}" || true
+          fi
+
+      - name: Build and restart service (from source)
+        if: ${{ !github.event.client_payload.image }}
+        run: |
+          cargo build --release --locked
+          sudo systemctl restart governance-app || true
+
+      - name: Pull and restart container (if image provided)
+        if: ${{ github.event.client_payload.image }}
+        run: |
+          IMAGE="${{ github.event.client_payload.image }}"
+          docker pull "$IMAGE"
+          docker stop governance-app || true
+          docker rm governance-app || true
+          docker run -d --name governance-app --restart=always -p 8080:8080 "$IMAGE"

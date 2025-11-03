@@ -45,9 +45,9 @@ This release includes the following components:
 ## Binaries Included
 
 - \`reference-node\` - Bitcoin reference node
-- \`btcdecoded-keygen\` - Key generation tool
-- \`btcdecoded-sign\` - Message signing tool
-- \`btcdecoded-verify\` - Signature verification tool
+- \`bllvm-keygen\` - Key generation tool
+- \`bllvm-sign\` - Message signing tool
+- \`bllvm-verify\` - Signature verification tool
 - \`governance-app\` - Governance application server
 - \`key-manager\` - Key management utility
 - \`test-content-hash\` - Content hash testing tool
@@ -58,7 +58,7 @@ This release includes the following components:
 Extract the archive and place binaries in your PATH:
 
 \`\`\`bash
-tar -xzf btcdecoded-*.tar.gz
+tar -xzf bitcoin-commons-bllvm-*.tar.gz
 sudo mv binaries/* /usr/local/bin/
 \`\`\`
 

@@ -1,0 +1,52 @@
+#!/bin/bash
+# Developer UX wrapper
+# Usage: dev up|test|build [repo]
+# repos: consensus-proof | protocol-engine | reference-node | developer-sdk | governance-app
+
+set -euo pipefail
+
+CMD="${1:-}"
+REPO="${2:-}"
+BASE_DIR="${BASE_DIR:-$HOME/src}"
+COMMONS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [[ -z "$CMD" ]]; then
+  echo "Usage: dev up|test|build [repo]" >&2
+  exit 2
+fi
+
+case "$CMD" in
+  up)
+    echo "Setting up environment..."
+    echo "Ensuring Rust toolchain..."
+    rustc --version || (curl https://sh.rustup.rs -sSf | sh -s -- -y)
+    echo "Done."
+    ;;
+  test)
+    if [[ -z "$REPO" ]]; then echo "Specify repo for test." >&2; exit 2; fi
+    case "$REPO" in
+      consensus-proof) "$COMMONS_DIR/tools/run_phase.sh" --base "$BASE_DIR" --phase L2 ;;
+      protocol-engine) "$COMMONS_DIR/tools/run_phase.sh" --base "$BASE_DIR" --phase L3 ;;
+      reference-node)  "$COMMONS_DIR/tools/run_phase.sh" --base "$BASE_DIR" --phase L4 ;;
+      developer-sdk)   "$COMMONS_DIR/tools/run_phase.sh" --base "$BASE_DIR" --phase SDK ;;
+      governance-app)  "$COMMONS_DIR/tools/run_phase.sh" --base "$BASE_DIR" --phase GA ;;
+      *) echo "Unknown repo: $REPO" >&2; exit 2 ;;
+    esac
+    ;;
+  build)
+    if [[ -z "$REPO" ]]; then echo "Specify repo for build." >&2; exit 2; fi
+    case "$REPO" in
+      consensus-proof|protocol-engine|reference-node|developer-sdk)
+        "$COMMONS_DIR/tools/det_build.sh" --repo "$BASE_DIR/$REPO" ;;
+      governance-app)
+        ( cd "$BASE_DIR/governance-app" && cargo build --release --locked ) ;;
+      *) echo "Unknown repo: $REPO" >&2; exit 2 ;;
+    esac
+    ;;
+  *)
+    echo "Unknown command: $CMD" >&2
+    exit 2
+    ;;
+esac
+
+echo "Done."

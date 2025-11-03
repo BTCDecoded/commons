@@ -13,7 +13,7 @@ protocol-engine = { version = "0.1.0", git_tag = "v0.1.0", git_commit = "", requ
 
 # Binaries
 reference-node = { version = "0.1.0", git_tag = "v0.1.0", git_commit = "", requires = ["protocol-engine=0.1.0", "consensus-proof=0.1.0"], binaries = ["reference-node"] }
-developer-sdk = { version = "0.1.0", git_tag = "v0.1.0", git_commit = "", binaries = ["btcdecoded-keygen", "btcdecoded-sign", "btcdecoded-verify"] }
+developer-sdk = { version = "0.1.0", git_tag = "v0.1.0", git_commit = "", binaries = ["bllvm-keygen", "bllvm-sign", "bllvm-verify"] }
 governance-app = { version = "0.1.0", git_tag = "v0.1.0", git_commit = "", requires = ["developer-sdk=0.1.0"], binaries = ["governance-app", "key-manager", "test-content-hash", "test-content-hash-standalone"] }
 
 # Metadata

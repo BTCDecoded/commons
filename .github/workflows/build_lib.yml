@@ -1,0 +1,104 @@
+name: Build Library/Binary (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      repo:
+        required: true
+        type: string
+      package:
+        required: false
+        type: string
+        default: ""
+      features:
+        required: false
+        type: string
+        default: ""
+      release:
+        required: false
+        type: boolean
+        default: true
+      ref:
+        required: true
+        type: string
+      verify_deterministic:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    # Prefer runners with rust label, fallback to basic
+    runs-on: self-hosted,linux,x64,rust
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ inputs.repo }}
+          ref: ${{ inputs.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Ensure deterministic env
+        run: |
+          export RUSTFLAGS="-C debuginfo=0 -C link-arg=-s"
+          echo "RUSTFLAGS=$RUSTFLAGS" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          if [ -n "${{ inputs.package }}" ]; then
+            PKG_ARG="-p ${{ inputs.package }}"
+          else
+            PKG_ARG=""
+          fi
+          if [ -n "${{ inputs.features }}" ]; then
+            FEAT_ARG="--features ${{ inputs.features }}"
+          else
+            FEAT_ARG=""
+          fi
+          cargo build --locked --release $PKG_ARG $FEAT_ARG
+
+      - name: Hash artifacts
+        run: |
+          find target/release -maxdepth 1 -type f -executable -print0 | xargs -0 sha256sum > SHA256SUMS || true
+          sha256sum Cargo.lock >> SHA256SUMS || true
+
+      - name: Verify deterministic build (optional)
+        if: ${{ inputs.verify_deterministic }}
+        run: |
+          # Store build args
+          if [ -n "${{ inputs.package }}" ]; then
+            PKG_ARG="-p ${{ inputs.package }}"
+          else
+            PKG_ARG=""
+          fi
+          if [ -n "${{ inputs.features }}" ]; then
+            FEAT_ARG="--features ${{ inputs.features }}"
+          else
+            FEAT_ARG=""
+          fi
+          # Clean and rebuild
+          cargo clean
+          cargo build --locked --release $PKG_ARG $FEAT_ARG
+          # Generate second hash set
+          find target/release -maxdepth 1 -type f -executable -print0 | xargs -0 sha256sum > SHA256SUMS2 || true
+          sha256sum Cargo.lock >> SHA256SUMS2 || true
+          # Compare
+          if ! diff -q SHA256SUMS SHA256SUMS2 > /dev/null 2>&1; then
+            echo "ERROR: Non-deterministic build detected!"
+            echo "First build hashes:"
+            cat SHA256SUMS
+            echo "Second build hashes:"
+            cat SHA256SUMS2
+            exit 1
+          fi
+          echo "Deterministic build verified: hashes match"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.repo }}-artifacts
+          path: |
+            target/release/*
+            SHA256SUMS

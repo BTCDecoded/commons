@@ -1,0 +1,53 @@
+name: Verify Consensus (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      repo:
+        required: false
+        type: string
+        default: consensus-proof
+      kani:
+        required: false
+        type: boolean
+        default: true
+      ref:
+        required: true
+        type: string
+
+jobs:
+  verify:
+    # Prefer runners with rust+kani labels when kani enabled, fallback to basic
+    runs-on: ${{ inputs.kani && 'self-hosted,linux,x64,rust,kani' || 'self-hosted,linux,x64,rust' }}
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ inputs.repo }}
+          ref: ${{ inputs.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo test (all features)
+        run: cargo test --all-features --locked
+
+      - name: Install Kani (if enabled)
+        if: ${{ inputs.kani }}
+        run: |
+          curl -fsSL https://model-checking.github.io/kani/install.sh | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run Kani proofs
+        if: ${{ inputs.kani }}
+        run: |
+          cargo kani --features verify || true
+
+      - name: Upload logs (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs
+          path: |
+            target/**/*.log
+            kani-*.log

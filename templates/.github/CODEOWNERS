@@ -1,0 +1,9 @@
+# Default owners
+* @BTCDecoded/maintainers
+
+# Layer-specific
+/consensus-proof/ @BTCDecoded/consensus
+/protocol-engine/ @BTCDecoded/engine
+/reference-node/ @BTCDecoded/node
+/developer-sdk/ @BTCDecoded/sdk
+/governance-app/ @BTCDecoded/governance

@@ -173,12 +173,12 @@ This builds all components in dependency order using Docker.
 Built binaries are collected in `artifacts/binaries/`:
 
 - `reference-node` - Bitcoin reference node
-- `btcdecoded-keygen`, `btcdecoded-sign`, `btcdecoded-verify` - SDK tools
+- `bllvm-keygen`, `bllvm-sign`, `bllvm-verify` - SDK tools
 - `governance-app`, `key-manager`, `test-content-hash*` - Governance tools
 
 Release archives include:
-- `btcdecoded-<platform>.tar.gz` - Tar archive
-- `btcdecoded-<platform>.zip` - Zip archive
+- `bitcoin-commons-bllvm-<platform>.tar.gz` - Tar archive
+- `bitcoin-commons-bllvm-<platform>.zip` - Zip archive
 - `SHA256SUMS` - Checksums for all binaries
 
 ## Troubleshooting
