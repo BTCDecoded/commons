@@ -22,6 +22,10 @@ on:
           - dev
           - release
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build-all:
     name: Build All Repositories

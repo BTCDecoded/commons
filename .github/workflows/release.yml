@@ -14,12 +14,14 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   release:
     name: Create Release ${{ inputs.version_tag }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     
     steps:
       - name: Checkout commons

@@ -16,6 +16,9 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   verify-versions:
     name: Verify Version Compatibility
