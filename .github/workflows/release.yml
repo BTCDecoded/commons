@@ -39,10 +39,14 @@ jobs:
         run: |
           # Update cargo to latest version
           rustup update cargo || true
-          # Remove corrupted cc crate and force re-download
+          # Remove corrupted crates (cc, openssl-sys, and any other corrupted ones)
           find ~/.cargo/registry -path "*/cc-1.2.41*" -type d -exec rm -rf {} + 2>/dev/null || true
           find ~/.cargo/registry -path "*/cc-1.2.46*" -type d -exec rm -rf {} + 2>/dev/null || true
-          # Clean cargo cache
+          find ~/.cargo/registry -path "*/openssl-sys-0.9.110*" -type d -exec rm -rf {} + 2>/dev/null || true
+          # Clean cargo registry cache completely to force fresh downloads
+          rm -rf ~/.cargo/registry/cache/* 2>/dev/null || true
+          rm -rf ~/.cargo/git/db/* 2>/dev/null || true
+          # Clean all build artifacts
           cargo clean || true
       
       - name: Checkout all repos at version
