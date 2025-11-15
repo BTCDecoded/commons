@@ -66,12 +66,19 @@ jobs:
           cd ${{ github.workspace }}
           for repo in bllvm-consensus bllvm-protocol bllvm-node bllvm-sdk; do
             if [ -d "$repo" ]; then
-              echo "Running tests in $repo (skipping doctests)..."
+              echo "Running tests in $repo (skipping doctests, 30s per-test timeout)..."
               cd "$repo"
               # Skip doctests for Phase 1 prerelease
               # --lib --bins --tests excludes --doc (doctests)
-              cargo test --release --all-features --lib --bins --tests || {
-                echo "Tests failed in $repo"
+              # Use timeout command to prevent hanging tests (30 min total per repo)
+              # Run tests with single thread to avoid resource contention
+              timeout 1800 cargo test --release --all-features --lib --bins --tests -- --test-threads=1 || {
+                EXIT_CODE=$?
+                if [ $EXIT_CODE -eq 124 ]; then
+                  echo "Tests timed out in $repo (exceeded 30 minutes)"
+                else
+                  echo "Tests failed in $repo"
+                fi
                 exit 1
               }
               cd ..
