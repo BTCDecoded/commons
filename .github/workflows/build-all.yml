@@ -4,13 +4,10 @@ on:
   workflow_call:
     inputs:
       mode:
-        description: 'Build mode'
+        description: 'Build mode (dev or release)'
         required: false
         default: 'dev'
-        type: choice
-        options:
-          - dev
-          - release
+        type: string
   workflow_dispatch:
     inputs:
       mode:
