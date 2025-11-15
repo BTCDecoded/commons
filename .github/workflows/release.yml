@@ -85,10 +85,8 @@ jobs:
           PARENT_DIR: ${{ github.workspace }}
       
       - name: Run tests (skip doctests for Phase 1 prerelease)
-        continue-on-error: true
         run: |
           cd ${{ github.workspace }}
-          FAILED_REPOS=()
           for repo in bllvm-consensus bllvm-protocol bllvm-node bllvm-sdk; do
             if [ -d "$repo" ]; then
               echo "Running tests in $repo (skipping doctests)..."
@@ -97,26 +95,18 @@ jobs:
               # --lib --bins --tests excludes --doc (doctests)
               # Use timeout command to prevent hanging tests (30 min total per repo)
               # Run tests with single thread to avoid resource contention
-              if timeout 1800 cargo test --release --all-features --lib --bins --tests -- --test-threads=1; then
-                echo "✓ Tests passed in $repo"
-              else
+              timeout 1800 cargo test --release --all-features --lib --bins --tests -- --test-threads=1 || {
                 EXIT_CODE=$?
                 if [ $EXIT_CODE -eq 124 ]; then
-                  echo "⚠ Tests timed out in $repo (exceeded 30 minutes) - continuing for Phase 1 prerelease"
+                  echo "Tests timed out in $repo (exceeded 30 minutes)"
                 else
-                  echo "⚠ Tests failed in $repo - continuing for Phase 1 prerelease"
+                  echo "Tests failed in $repo"
                 fi
-                FAILED_REPOS+=("$repo")
-              fi
+                exit 1
+              }
               cd ..
             fi
           done
-          if [ ${#FAILED_REPOS[@]} -gt 0 ]; then
-            echo "⚠ Some tests failed in: ${FAILED_REPOS[*]}"
-            echo "Continuing release for Phase 1 prerelease (test failures are warnings)"
-          else
-            echo "✓ All tests passed"
-          fi
         env:
           PARENT_DIR: ${{ github.workspace }}
       
