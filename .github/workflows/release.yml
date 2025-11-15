@@ -68,8 +68,9 @@ jobs:
             if [ -d "$repo" ]; then
               echo "Running tests in $repo (skipping doctests)..."
               cd "$repo"
-              # Skip doctests for Phase 1 prerelease (--lib --bins excludes --doc)
-              cargo test --release --all-features --lib --bins || {
+              # Skip doctests for Phase 1 prerelease
+              # --lib --bins --tests excludes --doc (doctests)
+              cargo test --release --all-features --lib --bins --tests || {
                 echo "Tests failed in $repo"
                 exit 1
               }
