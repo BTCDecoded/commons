@@ -68,6 +68,9 @@ jobs:
           commons/build.sh --mode release
         env:
           PARENT_DIR: ${{ github.workspace }}
+          CARGO_INCREMENTAL: "1"
+          CARGO_BUILD_JOBS: "0"  # Use all available CPU cores
+          RUSTFLAGS: "-C debuginfo=0"  # Reduce debug info for faster builds
       
       - name: Build all repositories (Windows cross-compile)
         run: |
@@ -76,7 +79,7 @@ jobs:
             if [ -d "$repo" ]; then
               echo "Building $repo for Windows..."
               cd "$repo"
-              cargo build --release --target x86_64-pc-windows-msvc --all-features || {
+              cargo build --release --target x86_64-pc-windows-msvc --all-features --jobs 0 || {
                 echo "Windows build failed for $repo (continuing...)"
               }
               cd ..
@@ -84,6 +87,9 @@ jobs:
           done
         env:
           PARENT_DIR: ${{ github.workspace }}
+          CARGO_INCREMENTAL: "1"
+          CARGO_BUILD_JOBS: "0"  # Use all available CPU cores
+          RUSTFLAGS: "-C debuginfo=0"  # Reduce debug info for faster builds
       
       - name: Run tests (skip doctests for Phase 1 prerelease)
         run: |

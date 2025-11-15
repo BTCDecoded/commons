@@ -144,8 +144,11 @@ build_repo() {
         # In a real implementation, we'd patch Cargo.toml or use git dependencies
     fi
     
-    # Build
-    if ! cargo build --release 2>&1 | tee "/tmp/${repo}-build.log"; then
+    # Build with optimizations
+    # Use all CPU cores and incremental compilation for faster builds
+    export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-0}"  # 0 = use all cores
+    export CARGO_INCREMENTAL="${CARGO_INCREMENTAL:-1}"  # Enable incremental builds
+    if ! cargo build --release --jobs "${CARGO_BUILD_JOBS}" 2>&1 | tee "/tmp/${repo}-build.log"; then
         # In Phase 1 prerelease, governance-app is optional (governance not activated)
         if [ "$repo" == "governance-app" ] && [ "$MODE" == "release" ]; then
             log_warn "Build failed for ${repo} (optional in Phase 1 prerelease)"
