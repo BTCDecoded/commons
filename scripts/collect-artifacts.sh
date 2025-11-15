@@ -19,7 +19,7 @@ if [[ "$PLATFORM" == *"windows"* ]]; then
 else
     TARGET_DIR="target/release"
     BIN_EXT=""
-    BINARIES_DIR="${ARTIFACTS_DIR}/binaries"
+BINARIES_DIR="${ARTIFACTS_DIR}/binaries"
 fi
 
 # Binary mapping
@@ -101,11 +101,11 @@ create_archives() {
         tar -czf "${archive_name}.tar.gz" "$bin_dir_name/" "$checksum_file" 2>/dev/null || true
         log_success "Created: ${archive_name}.tar.gz"
     fi
-    
+        
     # Create zip (preferred for Windows, also available for Linux)
     if command -v zip &> /dev/null && [ -d "$bin_dir_name" ] && [ "$(ls -A $bin_dir_name)" ]; then
         zip -r "${archive_name}.zip" "$bin_dir_name/" "$checksum_file" 2>/dev/null || true
-        log_success "Created: ${archive_name}.zip"
+            log_success "Created: ${archive_name}.zip"
     fi
     
     popd > /dev/null
@@ -124,8 +124,8 @@ main() {
         done
     else
         for repo in bllvm bllvm-sdk governance-app; do
-            collect_repo_binaries "$repo"
-        done
+        collect_repo_binaries "$repo"
+    done
     fi
     
     # Generate checksums

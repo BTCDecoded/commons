@@ -84,8 +84,8 @@ clone_or_update_repo() {
             # For Phase 1 prerelease, always use latest main to get bug fixes
             # TODO: In Phase 2, use exact tag versions for deterministic builds
             log_info "Using latest main for Phase 1 prerelease (includes bug fixes like test removals)"
-            git checkout main 2>/dev/null || git checkout master 2>/dev/null
-            git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
+                git checkout main 2>/dev/null || git checkout master 2>/dev/null
+                git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
             popd > /dev/null
         fi
         

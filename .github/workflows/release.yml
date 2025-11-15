@@ -35,35 +35,71 @@ jobs:
         with:
           components: rustfmt, clippy
       
-      - name: Check for performance tools
+      - name: Check for performance tools and configure environment
         run: |
           echo "Checking for performance optimization tools..."
+          RUSTFLAGS_BASE="-C debuginfo=0"
           if command -v mold &> /dev/null; then
             echo "✅ mold linker found"
-            export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=mold"
+            echo "RUSTFLAGS=${RUSTFLAGS_BASE} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
           else
             echo "⚠️  mold linker not found (install for faster linking)"
-          fi
-          if command -v sccache &> /dev/null; then
-            echo "✅ sccache found"
-            export RUSTC_WRAPPER=sccache
-          else
-            echo "⚠️  sccache not found (install for faster incremental builds)"
+            echo "RUSTFLAGS=${RUSTFLAGS_BASE}" >> $GITHUB_ENV
           fi
           if command -v ccache &> /dev/null; then
             echo "✅ ccache found"
-            export CC="ccache gcc"
-            export CXX="ccache g++"
+            echo "CC=ccache gcc" >> $GITHUB_ENV
+            echo "CXX=ccache g++" >> $GITHUB_ENV
           else
             echo "⚠️  ccache not found (install for faster C dependency builds)"
           fi
       
-      - name: Fix corrupted cargo dependencies
+      - name: Fix corrupted cargo dependencies and config
         run: |
-          # Update cargo to latest version
-          rustup update cargo || true
+          # Update rustup and toolchain (cargo comes with the toolchain)
+          rustup update stable || true
+          # CRITICAL: Unset CARGO_BUILD_JOBS if it's 0 (cargo rejects this)
+          if [ "${CARGO_BUILD_JOBS:-}" = "0" ]; then
+            echo "⚠️  CARGO_BUILD_JOBS is set to 0, unsetting it..."
+            unset CARGO_BUILD_JOBS
+            # Remove from GITHUB_ENV if it exists
+            if [ -f "$GITHUB_ENV" ]; then
+              sed -i '/^CARGO_BUILD_JOBS=/d' "$GITHUB_ENV" || true
+            fi
+          fi
+          # Remove jobs=0 from config files (cargo rejects this)
+          # Check for various formats: jobs=0, jobs = 0, jobs= 0, jobs =0
+          if [ -f ~/.cargo/config.toml ]; then
+            if grep -qE "jobs\s*=\s*0" ~/.cargo/config.toml 2>/dev/null; then
+              echo "⚠️  Found jobs=0 in ~/.cargo/config.toml, removing it..."
+              sed -i -E '/jobs\s*=\s*0/d' ~/.cargo/config.toml || true
+            fi
+          fi
+          # Remove jobs=0 from workspace config files
+          find . -name "config.toml" -path "*/.cargo/*" 2>/dev/null | while read file; do
+            if grep -qE "jobs\s*=\s*0" "$file" 2>/dev/null; then
+              echo "⚠️  Found jobs=0 in $file, removing it..."
+              sed -i -E '/jobs\s*=\s*0/d' "$file" || true
+            fi
+          done
+          # Remove incremental from config files when using sccache
+          if [ "${RUSTC_WRAPPER:-}" = "sccache" ]; then
+            if [ -f ~/.cargo/config.toml ]; then
+              if grep -q "incremental" ~/.cargo/config.toml 2>/dev/null; then
+                echo "⚠️  Removing incremental from ~/.cargo/config.toml (sccache requirement)"
+                sed -i '/\[build\]/,/^\[/ { /incremental/d; }' ~/.cargo/config.toml || true
+                sed -i '/^incremental/d' ~/.cargo/config.toml || true
+              fi
+            fi
+            find . -name "config.toml" -path "*/.cargo/*" 2>/dev/null | while read file; do
+              if grep -q "incremental" "$file" 2>/dev/null; then
+                echo "⚠️  Removing incremental from $file (sccache requirement)"
+                sed -i '/incremental/d' "$file" || true
+              fi
+            done
+            unset CARGO_INCREMENTAL || true
+          fi
           # Completely clear cargo registry to fix corrupted crates
-          # This forces fresh downloads of all dependencies
           echo "Cleaning corrupted cargo registry..."
           rm -rf ~/.cargo/registry/src/* 2>/dev/null || true
           rm -rf ~/.cargo/registry/cache/* 2>/dev/null || true
@@ -88,11 +124,14 @@ jobs:
       
       - name: Build all repositories (Linux)
         run: |
+          # CRITICAL: Unset CARGO_BUILD_JOBS if it's 0 (cargo rejects this)
+          if [ "${CARGO_BUILD_JOBS:-}" = "0" ]; then
+            echo "⚠️  CARGO_BUILD_JOBS is set to 0, unsetting it..."
+            unset CARGO_BUILD_JOBS
+          fi
           commons/build.sh --mode release
         env:
           PARENT_DIR: ${{ github.workspace }}
-          CARGO_INCREMENTAL: "1"
-          CARGO_BUILD_JOBS: "0"  # Use all available CPU cores
           RUSTFLAGS: "-C debuginfo=0"  # Reduce debug info for faster builds
       
       - name: Build all repositories (Windows cross-compile)
@@ -102,7 +141,8 @@ jobs:
             if [ -d "$repo" ]; then
               echo "Building $repo for Windows..."
               cd "$repo"
-              cargo build --release --target x86_64-pc-windows-msvc --all-features --jobs 0 || {
+              # Omit --jobs flag to use all available CPU cores
+              cargo build --release --target x86_64-pc-windows-msvc --all-features || {
                 echo "Windows build failed for $repo (continuing...)"
               }
               cd ..
@@ -111,7 +151,6 @@ jobs:
         env:
           PARENT_DIR: ${{ github.workspace }}
           CARGO_INCREMENTAL: "1"
-          CARGO_BUILD_JOBS: "0"  # Use all available CPU cores
           RUSTFLAGS: "-C debuginfo=0"  # Reduce debug info for faster builds
       
       - name: Run tests (skip doctests for Phase 1 prerelease)

@@ -40,37 +40,23 @@ env:
 
 **Expected Speedup:** 30-50% faster linking phase (especially for release builds with LTO)
 
-### 2. **sccache** ⭐⭐⭐ (High Impact for Repeated Builds)
+### 2. **Enable Incremental Compilation** ⭐⭐ (Medium Impact)
 
-`sccache` caches compiled Rust code across builds, dramatically speeding up incremental builds.
-
-**Installation:**
-```bash
-cargo install sccache
-```
+Rust's incremental compilation speeds up rebuilds by caching intermediate artifacts.
 
 **Configuration:**
-Add to `~/.cargo/config.toml`:
+Set in `~/.cargo/config.toml`:
 ```toml
 [build]
-rustc-wrapper = "/home/runner/.cargo/bin/sccache"
+incremental = true
 ```
 
 Or set environment variable:
 ```bash
-export RUSTC_WRAPPER=sccache
+export CARGO_INCREMENTAL=1
 ```
 
-**Storage Backend (Optional - for shared cache):**
-```bash
-# Use local filesystem (default)
-export SCCACHE_DIR=/tmp/sccache
-
-# Or use Redis (for multiple runners)
-export SCCACHE_REDIS=redis://localhost:6379
-```
-
-**Expected Speedup:** 50-90% faster for incremental builds, 20-40% for clean builds
+**Expected Speedup:** 50-90% faster for incremental builds (when code changes are small)
 
 ### 3. **ccache** ⭐⭐ (Medium Impact)
 
@@ -92,7 +78,7 @@ export CXX="ccache g++"
 
 ## System-Level Optimizations
 
-### 4. **Pre-install Rust Toolchain**
+### 3. **Pre-install Rust Toolchain**
 
 Pre-install the Rust toolchain to avoid downloading on every run:
 
@@ -115,33 +101,26 @@ cargo build --release
 # Keep the registry cache
 ```
 
-### 6. **Increase Cargo Parallel Jobs**
+### 4. **Increase Cargo Parallel Jobs**
 
-Set in `~/.cargo/config.toml`:
+**⚠️ CRITICAL:** Cargo does **NOT** accept `jobs = 0` in config files or `CARGO_BUILD_JOBS=0` as an environment variable. 
+
+**To use all CPU cores:** Simply omit the `jobs` setting entirely - cargo will use all available cores by default.
+
+**To limit jobs:** Use a positive integer:
 ```toml
 [build]
-jobs = 0  # 0 = use all CPU cores
+jobs = 4  # Use 4 parallel jobs
 ```
 
 Or set environment variable:
 ```bash
-export CARGO_BUILD_JOBS=0
+export CARGO_BUILD_JOBS=4  # Use 4 parallel jobs
 ```
 
-### 7. **Enable Incremental Compilation**
+**Never set `jobs = 0` or `CARGO_BUILD_JOBS=0` - cargo will reject it.**
 
-Set in `~/.cargo/config.toml`:
-```toml
-[build]
-incremental = true
-```
-
-Or set environment variable:
-```bash
-export CARGO_INCREMENTAL=1
-```
-
-### 8. **Use Faster Storage**
+### 5. **Use Faster Storage**
 
 - **SSD**: Essential for fast I/O during compilation
 - **tmpfs**: Use RAM disk for `target/` directory (if you have enough RAM)
@@ -157,7 +136,7 @@ export CARGO_TARGET_DIR=/mnt/ramdisk/target
 
 ## Network Optimizations
 
-### 9. **Use Cargo Mirror/Proxy**
+### 6. **Use Cargo Mirror/Proxy**
 
 Set up a local Cargo registry mirror to cache crates:
 
@@ -175,7 +154,7 @@ replace-with = "local-mirror"
 local-registry = "/path/to/local/registry"
 ```
 
-### 10. **Pre-download Git Dependencies**
+### 7. **Pre-download Git Dependencies**
 
 For git-based dependencies, pre-clone them:
 
@@ -202,12 +181,6 @@ if ! command -v mold &> /dev/null; then
     sudo apt-get install -y mold
 fi
 
-# Install sccache
-if ! command -v sccache &> /dev/null; then
-    echo "Installing sccache..."
-    cargo install sccache
-fi
-
 # Install ccache
 if ! command -v ccache &> /dev/null; then
     echo "Installing ccache..."
@@ -218,9 +191,8 @@ fi
 mkdir -p ~/.cargo
 cat > ~/.cargo/config.toml << 'EOF'
 [build]
-rustc-wrapper = "/home/runner/.cargo/bin/sccache"
-jobs = 0
 incremental = true
+# NOTE: Do NOT set jobs=0 (cargo rejects it) - omit to use all cores
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
@@ -229,12 +201,10 @@ EOF
 
 # Configure environment
 cat >> ~/.bashrc << 'EOF'
-export RUSTC_WRAPPER=sccache
 export CC="ccache gcc"
 export CXX="ccache g++"
-export SCCACHE_DIR=/tmp/sccache
-export CARGO_BUILD_JOBS=0
 export CARGO_INCREMENTAL=1
+# NOTE: Do NOT set CARGO_BUILD_JOBS=0 (cargo rejects it) - omit to use all cores
 EOF
 
 echo "✅ Runner optimizations installed!"
@@ -252,16 +222,11 @@ With all optimizations:
 ## Priority Order
 
 1. **mold linker** - Easiest, highest impact
-2. **sccache** - High impact, especially for CI
+2. **Incremental compilation** - High impact for rebuilds
 3. **ccache** - Medium impact, helps with C dependencies
 4. **System optimizations** - Lower impact but still valuable
 
 ## Monitoring
-
-Check sccache stats:
-```bash
-sccache --show-stats
-```
 
 Check ccache stats:
 ```bash
@@ -271,8 +236,8 @@ ccache -s
 ## Notes
 
 - **mold** requires `clang` to be installed
-- **sccache** needs disk space for cache (default: ~10GB)
 - **ccache** needs disk space for cache (default: ~5GB)
+- **Incremental compilation** uses disk space in `target/` directory
 - Monitor disk space usage regularly
 - Clear caches periodically if disk space is limited
 

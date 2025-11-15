@@ -133,6 +133,12 @@ build_repo() {
     local repo=$1
     local repo_path="${PARENT_DIR}/${repo}"
     
+    # CRITICAL: Unset CARGO_BUILD_JOBS if it's 0 (cargo rejects this)
+    if [ "${CARGO_BUILD_JOBS:-}" = "0" ]; then
+        unset CARGO_BUILD_JOBS
+    fi
+    
+    
     log_info "Building ${repo}..."
     
     pushd "$repo_path" > /dev/null
@@ -145,20 +151,38 @@ build_repo() {
     fi
     
     # Build with optimizations
-    # Use all CPU cores and incremental compilation for faster builds
-    export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-0}"  # 0 = use all cores
-    export CARGO_INCREMENTAL="${CARGO_INCREMENTAL:-1}"  # Enable incremental builds
-    if ! cargo build --release --jobs "${CARGO_BUILD_JOBS}" 2>&1 | tee "/tmp/${repo}-build.log"; then
-        # In Phase 1 prerelease, governance-app is optional (governance not activated)
-        if [ "$repo" == "governance-app" ] && [ "$MODE" == "release" ]; then
-            log_warn "Build failed for ${repo} (optional in Phase 1 prerelease)"
-            log_info "Skipping ${repo} - governance not yet activated"
+    # Enable incremental compilation for faster builds
+    export CARGO_INCREMENTAL="${CARGO_INCREMENTAL:-1}"
+    
+    # Build: use --jobs only if CARGO_BUILD_JOBS is set (and not 0)
+    # If unset or empty, cargo will use all cores by default
+    if [ -n "${CARGO_BUILD_JOBS:-}" ] && [ "${CARGO_BUILD_JOBS}" != "0" ]; then
+        if ! cargo build --release --jobs "${CARGO_BUILD_JOBS}" 2>&1 | tee "/tmp/${repo}-build.log"; then
+            # In Phase 1 prerelease, governance-app is optional (governance not activated)
+            if [ "$repo" == "governance-app" ] && [ "$MODE" == "release" ]; then
+                log_warn "Build failed for ${repo} (optional in Phase 1 prerelease)"
+                log_info "Skipping ${repo} - governance not yet activated"
+                popd > /dev/null
+                return 0  # Don't fail the build
+            fi
+            log_error "Build failed for ${repo}"
             popd > /dev/null
-            return 0  # Don't fail the build
+            return 1
         fi
-        log_error "Build failed for ${repo}"
-        popd > /dev/null
-        return 1
+    else
+        # Use all cores (omit --jobs flag)
+        if ! cargo build --release 2>&1 | tee "/tmp/${repo}-build.log"; then
+            # In Phase 1 prerelease, governance-app is optional (governance not activated)
+            if [ "$repo" == "governance-app" ] && [ "$MODE" == "release" ]; then
+                log_warn "Build failed for ${repo} (optional in Phase 1 prerelease)"
+                log_info "Skipping ${repo} - governance not yet activated"
+                popd > /dev/null
+                return 0  # Don't fail the build
+            fi
+            log_error "Build failed for ${repo}"
+            popd > /dev/null
+            return 1
+        fi
     fi
     
     popd > /dev/null
